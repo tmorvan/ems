@@ -5,8 +5,10 @@
 
 #include <iostream>
 #include <cstdlib>
+#include <cstdint>
 #include <string>
 #include <fstream>
+#include <memory>
 
 using namespace std;
 using namespace ems;
@@ -23,44 +25,65 @@ void cleanup() {
   outputFileName.clear();
 }
 
-int main(int argc, char** argv)
-{
+template<typename key>
+bool testSort() {
+  Util<key> util;
+  ExternalMergeSort<key> mergeSort;
+
   try {
     //Find an available input filename
-    inputFileName = Util::findAvailableFileName("testsort_input");
-    if (inputFileName.empty()) return 1;
+    inputFileName = util.findAvailableFileName("testsort_input");
+    if (inputFileName.empty()) return false;
 
     //Find an available output filename
-    outputFileName = Util::findAvailableFileName("testsort_output");
-    if (outputFileName.empty()) return 1;
+    outputFileName = util.findAvailableFileName("testsort_output");
+    if (outputFileName.empty()) return false;
 
     //Create the input file
-    if (!Util::createRandomFile(inputFileName,1000,1000)) {
+    if (!util.createRandomFile(inputFileName, 1000, 1000)) {
       cleanup();
-      return 1;
+      return false;
     }
 
     //Perform the sort
-    ExternalMergeSort mergeSort;
     mergeSort.setInputFileName(inputFileName.c_str());
     mergeSort.setOutputFileName(outputFileName.c_str());
     mergeSort.setDataSizePerThread(100);
     mergeSort.setNumMergesPerThread(4);
     if (!mergeSort.sort()) {
       cleanup();
-      return 1;
+      return false;
     }
 
     //Check the result
-    if (!Util::checkSortedFile(outputFileName)) {
+    if (!util.checkSortedFile(outputFileName)) {
       cleanup();
-      return 1;
+      return false;
     }
+
+    cleanup();
+    return true;
   }
   catch (...) {
     cleanup();
     throw;
   }
+}
+
+int main(int argc, char** argv)
+{
+  //Test with all basic types
+  if (!testSort<uint8_t>()) return 1;
+  if (!testSort<uint16_t>()) return 1;
+  if (!testSort<uint32_t>()) return 1;
+  if (!testSort<uint64_t>()) return 1;
+  if (!testSort<int8_t>()) return 1;
+  if (!testSort<int16_t>()) return 1;
+  if (!testSort<int32_t>()) return 1;
+  if (!testSort<int64_t>()) return 1;
+  if (!testSort<float>()) return 1;
+  if (!testSort<double>()) return 1;
+
   return 0;
 }
 

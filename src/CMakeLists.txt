@@ -1,16 +1,12 @@
 set(EMSHEADERS 
-    Util.h
-    ExternalMergeSort.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/UtilBase.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/UtilBase-inl.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Util.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/Util-inl.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ExternalMergeSortBase.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ExternalMergeSort.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/ExternalMergeSort-inl.h
+    PARENT_SCOPE
     )
     
 set_source_files_properties(${EMSHEADERS} PROPERTIES HEADER_FILE_ONLY 1)
-    
-set(EMSSRC 
-    Util.cpp
-    ExternalMergeSort.cpp
-    )
-    
-add_library(ems ${EMSSRC} ${EMSHEADERS})
-
-install(TARGETS ems DESTINATION lib)
-install(FILES ${EMSHEADERS} DESTINATION include)

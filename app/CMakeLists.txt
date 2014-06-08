@@ -2,17 +2,16 @@ set(SORTFILESRC
     SortFile.cpp
     )
     
-add_executable(sortfile ${SORTFILESRC})
-target_link_libraries(sortfile ems)
+add_executable(sortfile ${SORTFILESRC} ${EMSHEADERS})
 
 install(TARGETS sortfile DESTINATION bin)
+install(FILES ${EMSHEADERS} DESTINATION include)
 
 set (CREATERANDOMFILESRC
     CreateRandomFile.cpp
     )
     
-add_executable(createrandomfile ${CREATERANDOMFILESRC})
-target_link_libraries(createrandomfile ems)
+add_executable(createrandomfile ${CREATERANDOMFILESRC} ${EMSHEADERS})
     
 install (TARGETS createrandomfile DESTINATION bin)
 
@@ -20,7 +19,6 @@ set (CHECKSORTEDFILESRC
     CheckSortedFile.cpp
     )
     
-add_executable(checksortedfile ${CHECKSORTEDFILESRC})
-target_link_libraries(checksortedfile ems)
+add_executable(checksortedfile ${CHECKSORTEDFILESRC} ${EMSHEADERS})
     
 install (TARGETS checksortedfile DESTINATION bin)
