@@ -12,6 +12,8 @@ namespace ems {
   class ExternalMergeSort : public ExternalMergeSortBase
   {
   public:
+    ExternalMergeSort();
+
     //Perform the external merge sort
     //Returns true if successful
     virtual bool sort();

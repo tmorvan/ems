@@ -23,7 +23,6 @@ namespace ems {
       numMergesPerThread_(10),
       threadError_(false)
     {
-      allocateData();
     }
 
     //Set/get the input file name
@@ -84,7 +83,7 @@ namespace ems {
     virtual void mergeChunks(int threadId)=0;
 
     //Allocate the data for the threads
-    virtual void allocateData() {};
+    virtual void allocateData() = 0;
 
     //Close the open files and remove the intermediate files
     inline void cleanup() {

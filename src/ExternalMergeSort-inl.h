@@ -1,7 +1,14 @@
 #include <cstdio>
 #include <thread>
+#include <queue>
 
 namespace ems {
+
+  template<typename key>
+  ExternalMergeSort<key>::ExternalMergeSort() {
+    //initial allocation
+    allocateData();
+  }
 
   template<typename key>
   bool ExternalMergeSort<key>::sort() {
@@ -243,65 +250,73 @@ namespace ems {
 
         if (threadCurrentMergeChunk == (numMergeChunks_ - 1)) threadChunkSize[threadNumMerges - 1] = lastChunkSize_;
 
-        //Pointer for the merged chunk file
-        long long threadMergeChunkStreamPos = 0;
-
         //Size of the buffer for each chunk in the data vector
         long long threadChunkDataSize = dataSizePerThread_ / (threadNumMerges + 1);
-        //Size pf the buffer for the merged chunk in the data vector
+        //Size of the buffer for the merged chunk in the data vector
         long long threadMergeChunkDataSize = dataSizePerThread_ - threadNumMerges*threadChunkDataSize;
 
         //Pointers for each chunk in the thread data vector
         std::vector<long long> threadChunkDataInd(threadNumMerges);
-        //Set the pointers for each chunk at the end of its buffer to force load 
-        for (long long i = 0; i < threadNumMerges; i++) threadChunkDataInd[i] = (i + 1)*threadChunkDataSize;
+        //Set the pointers for each chunk at the end of its buffer 
+        for (long long i = 0; i < threadNumMerges; i++) threadChunkDataInd[i] = i*(threadChunkDataSize+1);
 
         //Pointer for the merged chunk in the thread data vector
         long long threadMergeChunkDataInd = threadNumMerges*threadChunkDataSize;
 
-        //Perform N-way merge of the chunks until the end position is reached
-        while (threadMergeChunkStreamPos != threadMergeChunkSize) {
-          key minVal = std::numeric_limits<key>::max();
-          long long minChunk = 0;
-          //Search for the minimum current value from all the chunks
-          for (long long i = 0; i < threadNumMerges; i++) {
-            //If the end for this chunk has been reached skip to the next chunk
-            if (threadChunkStreamPos[i] == threadChunkSize[i]) continue;
+        //Priority queue keeping track of the values at the current pointers in the thread data vector
+        std::priority_queue<std::pair<key,long long>, std::vector<std::pair<key,long long>>, std::greater<std::pair<key,long long>>> mergeQueue;
 
-            //Load data for chunk i if necessary
-            if (threadChunkDataInd[i] == (i + 1)*threadChunkDataSize) {
-              long long numRead = min<long long>(threadChunkDataSize, threadChunkSize[i] - threadChunkStreamPos[i]);
-              if (numRead) {
-                long long indChunkFile = threadCurrentMergeChunk*numMergesPerThread_ + i;
-                //Point to the beginning of the buffer for this chunk
-                threadChunkDataInd[i] = i*threadChunkDataSize;
-                //Read the data
-                chunkFiles_[indChunkFile].second.read(reinterpret_cast<char *>(&(dataVec_[threadId][threadChunkDataInd[i]])), sizeof(key) * numRead);
-              }
-            }
-            if (dataVec_[threadId][threadChunkDataInd[i]] <= minVal) {
-              //Found a new minimum value
-              minVal = dataVec_[threadId][threadChunkDataInd[i]];
-              minChunk = i;
-            }
+        //Perform N-way merge of the chunks
+        //Load the initial data and fill the priority queue
+        for (long long i = 0; i < threadNumMerges; i++) {
+          //If the end for this chunk has been reached skip to the next chunk
+          if (threadChunkStreamPos[i] == threadChunkSize[i]) continue;
+
+          //Load data for chunk i
+          long long numRead = min<long long>(threadChunkDataSize, threadChunkSize[i] - threadChunkStreamPos[i]);
+          if (numRead) {
+            long long indChunkFile = threadCurrentMergeChunk*numMergesPerThread_ + i;
+            //Point to the beginning of the buffer for this chunk
+            threadChunkDataInd[i] = i*threadChunkDataSize;
+            //Read the data
+            chunkFiles_[indChunkFile].second.read(reinterpret_cast<char *>(&(dataVec_[threadId][threadChunkDataInd[i]])), sizeof(key)* numRead);
+            mergeQueue.push(std::make_pair(dataVec_[threadId][threadChunkDataInd[i]],i));
           }
-          //Write data if the output buffer is full
-          if (threadMergeChunkDataInd == dataSizePerThread_) {
-            //Point to the beginning of the output buffer
-            threadMergeChunkDataInd = threadNumMerges*threadChunkDataSize;
-            chunkFiles_[indMergeChunkFile].second.write(reinterpret_cast<char *>(&(dataVec_[threadId][threadMergeChunkDataInd])), sizeof(key) * threadMergeChunkDataSize);
-          }
-          //Set the new minimum and increment the output buffer index and the output stream position
-          dataVec_[threadId][threadMergeChunkDataInd++] = minVal;
-          threadMergeChunkStreamPos++;
-          //Increment the buffer index and stream position of the corresponding chunk
-          threadChunkDataInd[minChunk]++;
-          threadChunkStreamPos[minChunk]++;
         }
 
-        //Write the remaining data if any
-        long long numWrite = threadMergeChunkDataInd - threadNumMerges*threadChunkDataSize;
-        if (numWrite > 0) chunkFiles_[indMergeChunkFile].second.write(reinterpret_cast<char *>(&(dataVec_[threadId][threadNumMerges*threadChunkDataSize])), sizeof(key) * numWrite);
+        //While the queue is not empty, dequeue the top element, add it to the result and try to fetch another value from the same chunk
+        while (!mergeQueue.empty()) {
+          auto topPair = mergeQueue.top();
+          mergeQueue.pop();
+          dataVec_[threadId][threadMergeChunkDataInd++] = topPair.first;
+
+          //Add data to the queue from the chunk we just poped
+          //Increment the pointers for this chunk
+          threadChunkDataInd[topPair.second]++;
+          threadChunkStreamPos[topPair.second]++;
+          //Check that the end of the stream has not been reached
+          if (threadChunkStreamPos[topPair.second] != threadChunkSize[topPair.second]) {
+            //Read more data if necessary
+            if (threadChunkDataInd[topPair.second] == (topPair.second + 1)*threadChunkDataSize) {
+              long long numRead = min<long long>(threadChunkDataSize, threadChunkSize[topPair.second] - threadChunkStreamPos[topPair.second]);
+              if (numRead) {
+                long long indChunkFile = threadCurrentMergeChunk*numMergesPerThread_ + topPair.second;
+                //Point to the beginning of the buffer for this chunk
+                threadChunkDataInd[topPair.second] = topPair.second*threadChunkDataSize;
+                //Read the data
+                chunkFiles_[indChunkFile].second.read(reinterpret_cast<char *>(&(dataVec_[threadId][threadChunkDataInd[topPair.second]])), sizeof(key)* numRead);
+              }
+            }
+            //Add to the queue
+            mergeQueue.push(std::make_pair(dataVec_[threadId][threadChunkDataInd[topPair.second]],topPair.second));
+          }
+          //Write the merged data if the output buffer is full or the queue is empty
+          if ((threadMergeChunkDataInd == dataSizePerThread_) || mergeQueue.empty()) {
+            long long numWrite = threadMergeChunkDataInd - threadNumMerges*threadChunkDataSize;
+            chunkFiles_[indMergeChunkFile].second.write(reinterpret_cast<char *>(&(dataVec_[threadId][threadNumMerges*threadChunkDataSize])), sizeof(key)* numWrite);
+            threadMergeChunkDataInd = threadNumMerges*threadChunkDataSize;
+          }
+        }
 
         //Close the file for the output merged chunk
         chunkFiles_[indMergeChunkFile].second.close();
