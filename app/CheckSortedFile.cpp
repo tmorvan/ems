@@ -6,6 +6,7 @@
 #include <iostream>
 #include <cstdint>
 #include <memory>
+#include <functional>
 
 using namespace std;
 using namespace ems;
@@ -23,24 +24,24 @@ int main(int argc, char** argv)
   string keyType = "uint32";
   if (argc>=3) keyType = argv[2];
   
-  unique_ptr<UtilBase> myUtil;
+  function<bool(string)> myCheckSortedFile;
 
-  if (keyType == "uint8") myUtil = unique_ptr<UtilBase>(new Util<uint8_t>);
-  else if (keyType == "uint16") myUtil = unique_ptr<UtilBase>(new Util<uint16_t>);
-  else if (keyType == "uint32") myUtil = unique_ptr<UtilBase>(new Util<uint32_t>);
-  else if (keyType == "uint64") myUtil = unique_ptr<UtilBase>(new Util<uint64_t>);
-  else if (keyType == "int8") myUtil = unique_ptr<UtilBase>(new Util<int8_t>);
-  else if (keyType == "int16") myUtil = unique_ptr<UtilBase>(new Util<int16_t>);
-  else if (keyType == "int32") myUtil = unique_ptr<UtilBase>(new Util<int32_t>);
-  else if (keyType == "int64") myUtil = unique_ptr<UtilBase>(new Util<int64_t>);
-  else if (keyType == "float") myUtil = unique_ptr<UtilBase>(new Util<float>);
-  else if (keyType == "double") myUtil = unique_ptr<UtilBase>(new Util<double>);
+  if (keyType == "uint8") myCheckSortedFile = checkSortedFile<uint8_t>;
+  else if (keyType == "uint16") myCheckSortedFile = checkSortedFile<uint16_t>;
+  else if (keyType == "uint32") myCheckSortedFile = checkSortedFile<uint32_t>;
+  else if (keyType == "uint64") myCheckSortedFile = checkSortedFile<uint64_t>;
+  else if (keyType == "int8") myCheckSortedFile = checkSortedFile<int8_t>;
+  else if (keyType == "int16") myCheckSortedFile = checkSortedFile<int16_t>;
+  else if (keyType == "int32") myCheckSortedFile = checkSortedFile<int32_t>;
+  else if (keyType == "int64") myCheckSortedFile = checkSortedFile<int64_t>;
+  else if (keyType == "float") myCheckSortedFile = checkSortedFile<float>;
+  else if (keyType == "double") myCheckSortedFile = checkSortedFile<double>;
   else {
     cerr << "Invalid key type " << keyType.c_str() << endl;
     return 1;
   }
 
-  if (!myUtil->checkSortedFile(fileName)) {
+  if (!myCheckSortedFile(fileName)) {
     cout << "File " << fileName.c_str() << " is not sorted " << endl;
     return 1;
   }

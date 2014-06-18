@@ -189,7 +189,7 @@ namespace ems {
           inFile_.read(reinterpret_cast<char *>(&(dataVec_[threadId][0])), sizeof(key) * threadChunkSize);
         }
         catch (...) {
-          ///Unlock the mutex if an exception occured
+          //Unlock the mutex if an exception occured
           inFileMutex_.unlock();
           throw;
         }

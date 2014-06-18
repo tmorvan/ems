@@ -27,20 +27,19 @@ void cleanup() {
 
 template<typename key>
 bool testSort() {
-  Util<key> util;
   ExternalMergeSort<key> mergeSort;
 
   try {
     //Find an available input filename
-    inputFileName = util.findAvailableFileName("testsort_input");
+    inputFileName = findAvailableFileName("testsort_input");
     if (inputFileName.empty()) return false;
 
     //Find an available output filename
-    outputFileName = util.findAvailableFileName("testsort_output");
+    outputFileName = findAvailableFileName("testsort_output");
     if (outputFileName.empty()) return false;
 
     //Create the input file
-    if (!util.createRandomFile(inputFileName, 1000, 1000)) {
+    if (!createRandomFile<key>(inputFileName, 1000, 1000)) {
       cleanup();
       return false;
     }
@@ -56,7 +55,7 @@ bool testSort() {
     }
 
     //Check the result
-    if (!util.checkSortedFile(outputFileName)) {
+    if (!checkSortedFile<key>(outputFileName)) {
       cleanup();
       return false;
     }
