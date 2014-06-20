@@ -1,5 +1,5 @@
-//Templat ed class for ExternalMergeSort
-//This class performs multithreaded external merge sort on a file of unsigned 32 bit integers
+//Templated class for ExternalMergeSort
+//This class performs multithreaded external merge sort on a binary file
 //The file is divided into chunks which are sorted then merged in parallel
 
 #pragma once
@@ -19,13 +19,11 @@ namespace ems {
     virtual bool sort();
 
   protected:
-    //Function for sorting threads
-    //Sort a chunk
-    virtual void sortChunk(int threadId);
+    //Function to sort a chunk
+    virtual void handleSortChunkTask(int threadId, Task *task) ;
 
-    //Function for merging threads
-    //Perform a N-way merge of chunks into one merged chunk
-    virtual void mergeChunks(int threadId);
+    //Function to merge a chunl
+    virtual void handleMergeFilesTask(int threadId, Task *task) ;
 
     //Allocate the data for the threads
     virtual void allocateData();

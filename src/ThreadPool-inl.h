@@ -1,3 +1,4 @@
+#pragma once
 
 namespace ems {
 
@@ -47,7 +48,9 @@ namespace ems {
   }
 
   void ThreadPool::join() {
-    for (int i = 0; i < workers_.size(); i++) workers_[i].join();
+    for (int i = 0; i < workers_.size(); i++) {
+      if (workers_[i].joinable()) workers_[i].join();
+    }
   }
 
   void ThreadPool::addTask(std::shared_ptr<Task> task) {
@@ -67,6 +70,30 @@ namespace ems {
 
     //Notify the threads that a task has been added
     tasksCondition_.notify_one();
+  }
+
+  std::shared_ptr<Task> ThreadPool::getTask(bool block, bool rethrowException) {
+    //Acquire lock
+    std::unique_lock<std::mutex> lock(tasksMutex_);
+
+    while (block && tasks_.empty() && isHandlingTasks_) {
+      tasksCondition_.wait(lock);
+    }
+
+    //If an exception occured in one of the thread, rethrow it or return null
+    if (workerException_ != nullptr) {
+      if (rethrowException) std::rethrow_exception(workerException_);
+      else return nullptr;
+    }
+
+    if (tasks_.empty()) return nullptr;
+
+    std::shared_ptr<Task> res = tasks_.front();
+    tasks_.pop_front();
+
+    return res;
+
+    //Release lock
   }
 
   void ThreadPool::clearTasks() {
@@ -193,73 +220,91 @@ namespace ems {
   }
 
   void ThreadPool::workerFunc(int threadId) {
+    std::shared_ptr<Task> threadCurrentTask = nullptr;
     try {
-      std::shared_ptr<Task> threadCurrentTask;
       while (true) {
+        //{
+        //  //Acquire lock
+        //  std::unique_lock<std::mutex> lock(tasksMutex_);
+
+        //  //Stop the threads if the task list is empty and stopWhenEmpty_ is true
+        //  if (stopWhenEmpty_ && tasks_.empty()) {
+        //    if (isHandlingTasks_) {
+        //      //Release the lock
+        //      lock.unlock();
+
+        //      //Stop the threads
+        //      stopHandlingTasks();
+        //    }
+
+        //    //Stop this thread
+        //    return;
+        //  }
+
+        //  while (isHandlingTasks_ && tasks_.empty()) {
+        //    //Release lock and wait on condition
+        //    tasksCondition_.wait(lock);
+        //    //Woken up, lock reacquired
+        //  }
+
+        //  //Stop the thread and release the lock if we stopped handling tasks
+        //  if (!isHandlingTasks_) return;
+
+        //  //Get the front task
+        //  threadCurrentTask = tasks_.front();
+        //  tasks_.pop_front();
+
+        //  //Release lock
+        //}
+
+        //Get the next task
+        std::shared_ptr<Task> threadCurrentTask = getTask(!stopWhenEmpty_);
+
+        //Stop the thread if we could not get a new task
+        if (!threadCurrentTask) return;
+        else if (!isHandlingTasks_) {
+          //Not handling tasks anymore, readd the task to the queue and exit
+          addTask(threadCurrentTask);
+          return;
+        }
+
+        //if (threadCurrentTask) {
+          //Get the task handler for this task
+        TaskHandler handler;
+
+        size_t typeHash = typeid(*threadCurrentTask).hash_code();
+          
+        handler = getTaskHandler(typeHash, threadId);
+
+        //Execute the handler
+        if (handler) {
+          threadCurrentTask->handled = true;
+          handler(threadId, threadCurrentTask.get());
+        }
+        else threadCurrentTask->handled = false;
+
+        //Push the task to the list of completed tasks
         {
           //Acquire lock
-          std::unique_lock<std::mutex> lock(tasksMutex_);
+          std::lock_guard<std::mutex> lock(tasksMutex_);
 
-          //Stop the threads if the task list is empty and stopWhenEmpty_ is true
-          if (stopWhenEmpty_ && tasks_.empty()) {
-            if (isHandlingTasks_) {
-              //Release the lock
-              lock.unlock();
-
-              //Stop the threads
-              stopHandlingTasks();
-            }
-
-            //Stop this thread
-            return;
-          }
-
-          while (isHandlingTasks_ && tasks_.empty()) {
-            //Release lock and wait on condition
-            tasksCondition_.wait(lock);
-            //Woken up, lock reacquired
-          }
-
-          //Stop the thread and release the lock if we stopped handling tasks
-          if (!isHandlingTasks_) return;
-
-          //Get the front task
-          threadCurrentTask = tasks_.front();
-          tasks_.pop_front();
-
+          completedTasks_.push_back(threadCurrentTask);
           //Release lock
         }
 
-        if (threadCurrentTask) {
-          //Get the task handler for this task
-          TaskHandler handler;
+        //Free the current task pointer
+        threadCurrentTask.reset();
 
-          size_t typeHash = typeid(*threadCurrentTask).hash_code();
-          
-          handler = getTaskHandler(typeHash, threadId);
+        //Notify threads waiting for new completed task
+        completedTasksCondition_.notify_one();
 
-          //Execute the handler
-          if (handler) {
-            threadCurrentTask->handled = true;
-            handler(threadId, threadCurrentTask.get());
-          }
-          else threadCurrentTask->handled = false;
-
-          //Push the task to the list of completed tasks
-          {
-            //Acquire lock
-            std::lock_guard<std::mutex> lock(tasksMutex_);
-
-            completedTasks_.push_back(threadCurrentTask);
-            //Release lock
-          }
-          //Notify threads waiting for new completed task
-          completedTasksCondition_.notify_one();
-
-        }
+        //}
       }
     }
     catch (std::exception e) {
+      //If there is a current task try to readd it to the queue
+      if (threadCurrentTask) addTask(threadCurrentTask);
+
       //Set the exception pointer
       workerException_ = std::current_exception();
       

@@ -1,3 +1,5 @@
+#pragma once
+
 #include <vector>
 #include <random>
 #include <limits>
@@ -80,21 +82,28 @@ namespace ems {
     return true;
   }
 
-  std::string findAvailableFileName(std::string desiredFileName) {
+  std::string findAvailableFileName(std::string desiredFileName, int &appendNumber) {
     //Try to open the file
-    std::string testFileName = desiredFileName;
+    std::string testFileName;
     std::fstream testFile;
+    if (appendNumber < 0) {
+      testFileName = desiredFileName;
+      appendNumber = -1;
+    }
+    else {
+      testFileName = desiredFileName + std::to_string(appendNumber);
+    }
     testFile.open(testFileName, std::ios::in | std::ios::binary);
-    int nameInd = 0;
-    while (testFile.is_open() && (nameInd < std::numeric_limits<int>::max())) {
+    while (testFile.is_open() && (appendNumber < std::numeric_limits<int>::max())) {
+      appendNumber++;
       //file exists try another file
       testFile.close();
-      testFileName = desiredFileName + std::to_string(nameInd);
+      testFileName = desiredFileName + std::to_string(appendNumber);
       testFile.open(testFileName, std::ios::in | std::ios::binary);
-      nameInd++;
     }
     if (testFile.is_open()) {
       testFile.close();
+      appendNumber = -1;
       return std::string();
     }
     return testFileName;

@@ -1,5 +1,5 @@
 //Base non-templated class for external merge sort
-//This class performs multithreaded external merge sort on a file of unsigned 32 bit integers
+//This class performs multithreaded external merge sort on a binary file
 //The file is divided into chunks which are sorted then merged in parallel
 
 #pragma once
@@ -10,9 +10,24 @@
 #include <string>
 #include <atomic>
 #include <algorithm>
-#include <iostream>
+#include <memory>
+
+#include "ThreadPool.h"
 
 namespace ems {
+  //Tasks for sorting chunks
+  struct SortChunkTask : public Task {
+    long long startInd;
+    long long numValues;
+    std::string sortedFileName;
+  };
+
+  //Task for merging files
+  struct MergeFilesTask : public Task {
+    std::vector<std::pair<std::string,long long>> files;
+    long long level;
+    std::string mergedFileName;
+  };
 
   class ExternalMergeSortBase
   {
@@ -20,9 +35,9 @@ namespace ems {
     ExternalMergeSortBase::ExternalMergeSortBase() :
       numThreads_(4),
       dataSizePerThread_(10000000),
-      numMergesPerThread_(10),
-      threadError_(false)
+      numMergesPerThread_(10)
     {
+      if (std::thread::hardware_concurrency()) numThreads_ = std::thread::hardware_concurrency();
     }
 
     //Set/get the input file name
@@ -71,30 +86,56 @@ namespace ems {
 
     //Perform the external merge sort
     //Returns true if successful
-    virtual bool sort()=0;
+    virtual bool sort() = 0;
 
   protected:
-    //Function for sorting threads
-    //Sort a chunk
-    virtual void sortChunk(int threadId)=0;
+    //Function to sort a chunk
+    virtual void handleSortChunkTask(int threadId, Task *task) = 0;
 
-    //Function for merging threads
-    //Perform a N-way merge of chunks into one merged chunk
-    virtual void mergeChunks(int threadId)=0;
+    //Function to merge a chunl
+    virtual void handleMergeFilesTask(int threadId, Task *task) = 0;
 
     //Allocate the data for the threads
     virtual void allocateData() = 0;
 
     //Close the open files and remove the intermediate files
     inline void cleanup() {
+      pool_.stopHandlingTasks();
+      pool_.join();
+
       if (inFile_.is_open()) inFile_.close();
       inFile_.clear();
-      //Try to remove the chunk files
-      for (auto &fileInfo : chunkFiles_) {
-        if (fileInfo.second.is_open()) fileInfo.second.close();
-        if (remove(fileInfo.first.c_str())) std::cerr << "error removing file " << fileInfo.first << std::endl;
-      }
-      chunkFiles_.clear();
+
+      std::shared_ptr<Task> task;
+
+      //Go through the tasks still in the pool and the ones stored and close and remove the temporary files
+      do {
+        task = pool_.getTask(false, false);
+        if (!task) task = pool_.getCompletedTask(false, false);
+        while (!task && storedTasks_.size()) {
+          auto taskList = storedTasks_.back();
+          if (!taskList.size()) storedTasks_.pop_back();
+          else {
+            task = taskList.back();
+            taskList.pop_back();
+          }
+        }
+        if (task) {
+          SortChunkTask *sortTask = dynamic_cast<SortChunkTask *>(task.get());
+          if (sortTask) {
+            if (!sortTask->sortedFileName.empty()) remove(sortTask->sortedFileName.c_str());
+          }
+          else {
+            MergeFilesTask *mergeTask = dynamic_cast<MergeFilesTask *>(task.get());
+            if (mergeTask) {
+              for (auto fileInfo : mergeTask->files) {
+                if (!fileInfo.first.empty()) remove(fileInfo.first.c_str());
+              }
+              if (!mergeTask->mergedFileName.empty()) remove(mergeTask->mergedFileName.c_str());
+            }
+          }
+        }
+      } while (task);
     }
 
     //Input file name
@@ -102,58 +143,27 @@ namespace ems {
 
     //Output file name
     std::string outputFileName_;
-
-    //Number of threads to use (default 4)
+    
+    //Number of threads to use
     int numThreads_;
 
-    //Amount of data (ints) allocated to each thread (default 10M)
+    //Amount of keys allocated to each thread (default 10M)
     long long dataSizePerThread_;
 
     //Maximum amount of chunks merged per thread (default 10)
     long long numMergesPerThread_;
 
-    //Number of chunks merged by the last thread
-    long long numMergesLastThread_;
+    //The pool containing the worker threads
+    ThreadPool pool_;
+
+    //Tasks stored by the main thread for future merge
+    std::vector< std::vector< std::shared_ptr<Task> > > storedTasks_;
 
     //The input file
     std::fstream inFile_;
 
     //Used to serialize access to the input file by the threads
     std::mutex inFileMutex_;
-
-    //Temporary files corresponding to sorted chunks
-    std::vector< std::pair<std::string, std::fstream> > chunkFiles_;
-
-    //Unique id for each chunk file
-    long long chunkFileId_ = 0;
-
-    //Used by the sorting threads to keep track of the next chunk to process
-    std::atomic<long long> currentChunk_;
-
-    //Number of chunks to sort or merge
-    long long numChunks_;
-
-    //Size of each chunk
-    long long chunkSize_;
-
-    //Size of the last chunk
-    long long lastChunkSize_;
-
-    //Used by the sorting threads to keep track of the next chunks to merge
-    std::atomic<long long> currentMergeChunk_;
-
-    //Number of merged chunks
-    long long numMergeChunks_;
-
-    //Size of each merged chunk
-    long long mergeChunkSize_;
-
-    //Size of the last merged chunk
-    long long lastMergeChunkSize_;
-
-    //Indicate whether an error has occured in the threads
-    bool threadError_;
-
   };
 
 } //namespace ems

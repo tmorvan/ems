@@ -14,10 +14,22 @@ namespace ems {
   template<typename key>
   bool checkSortedFile(std::string fileName);
 
+
+  //Check if the file with desired filename exists
+  //If not append integers to the name until a non-existent filename is found
+  //If appendNumber is positive it is the first appended integer
+  //Otherwise the first appended integer is 0
+  //The final appended number is returned in appendNumber (-1 if no numbers were appended)
+  //Return empty string if all filenames are taken
+  std::string findAvailableFileName(std::string desiredFileName, int &appendNumber);
+
   //Check if the file with desired filename exists
   //If not append integers to the name until a non-existent filename is found
   //Return empty string if all filenames are taken
-  std::string findAvailableFileName(std::string desiredFileName);
+  inline std::string findAvailableFileName(std::string desiredFileName) {
+    int appendNumber = -1;
+    return findAvailableFileName(desiredFileName, appendNumber);
+  }
 
 } //namespace ems
 

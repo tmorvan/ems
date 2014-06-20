@@ -49,6 +49,7 @@ bool testSort() {
     mergeSort.setOutputFileName(outputFileName.c_str());
     mergeSort.setDataSizePerThread(100);
     mergeSort.setNumMergesPerThread(4);
+    mergeSort.setNumThreads(4);
     if (!mergeSort.sort()) {
       cleanup();
       return false;

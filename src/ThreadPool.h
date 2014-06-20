@@ -28,12 +28,12 @@ namespace ems {
   {
 
   public:
-    //Default constructor with 4 worker threads
+    //Default constructor
     ThreadPool();
 
     //Start handling the tasks (spawn numWorker threads)
     //If stopWhenEmpty is true the handling will stop once the taskList is empty
-    void handleTasks(int numWorkers=4, bool stopWhenEmpty=false);
+    void handleTasks(int numWorkers=std::max(std::thread::hardware_concurrency(),1u), bool stopWhenEmpty=false);
 
     //Stop handling the tasks (stop the threads)
     void stopHandlingTasks();
@@ -43,6 +43,14 @@ namespace ems {
 
     //Enqueue a task for processing
     void addTask(std::shared_ptr<Task> task);
+
+    //Get a task and remove it from the queue
+    //If block is true and the task queue is empty the thread will block
+    //until a new task is added or stopHandlingTasks is called
+    //If block is false the function will return immediately
+    //Returns a null pointer if the task list is empty 
+    //If an exception occured in the threads, rethrows it if retrhrowException is true, otherwise returns null
+    std::shared_ptr<Task> getTask(bool block = true, bool rethrowException = true);
 
     //Clear all tasks
     void clearTasks();
