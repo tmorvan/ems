@@ -223,40 +223,6 @@ namespace ems {
     std::shared_ptr<Task> threadCurrentTask = nullptr;
     try {
       while (true) {
-        //{
-        //  //Acquire lock
-        //  std::unique_lock<std::mutex> lock(tasksMutex_);
-
-        //  //Stop the threads if the task list is empty and stopWhenEmpty_ is true
-        //  if (stopWhenEmpty_ && tasks_.empty()) {
-        //    if (isHandlingTasks_) {
-        //      //Release the lock
-        //      lock.unlock();
-
-        //      //Stop the threads
-        //      stopHandlingTasks();
-        //    }
-
-        //    //Stop this thread
-        //    return;
-        //  }
-
-        //  while (isHandlingTasks_ && tasks_.empty()) {
-        //    //Release lock and wait on condition
-        //    tasksCondition_.wait(lock);
-        //    //Woken up, lock reacquired
-        //  }
-
-        //  //Stop the thread and release the lock if we stopped handling tasks
-        //  if (!isHandlingTasks_) return;
-
-        //  //Get the front task
-        //  threadCurrentTask = tasks_.front();
-        //  tasks_.pop_front();
-
-        //  //Release lock
-        //}
-
         //Get the next task
         std::shared_ptr<Task> threadCurrentTask = getTask(!stopWhenEmpty_);
 
@@ -268,8 +234,7 @@ namespace ems {
           return;
         }
 
-        //if (threadCurrentTask) {
-          //Get the task handler for this task
+        //Get the task handler for this task
         TaskHandler handler;
 
         size_t typeHash = typeid(*threadCurrentTask).hash_code();
@@ -297,8 +262,6 @@ namespace ems {
 
         //Notify threads waiting for new completed task
         completedTasksCondition_.notify_one();
-
-        //}
       }
     }
     catch (std::exception e) {

@@ -13,7 +13,7 @@
 
 namespace ems {
 
-  //Dummy polymorphic base struct for tasks
+  //Base polymorphic base struct for tasks
   struct Task {
     Task() : handled(false) {};
     virtual ~Task() {}; // for polymorphism
