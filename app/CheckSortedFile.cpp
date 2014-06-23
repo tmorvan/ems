@@ -8,44 +8,42 @@
 #include <memory>
 #include <functional>
 
-using namespace std;
-using namespace ems;
 
 int main(int argc, char** argv)
 {
   if (argc < 2) {
-    cerr << "Too few arguments " << endl;
-    if (argc != 0) cerr << "Syntax : " << argv[0] << " fileName [keyType]" << endl;
+    std::cerr << "Too few arguments " << std::endl;
+    if (argc != 0) std::cerr << "Syntax : " << argv[0] << " fileName [keyType]" << std::endl;
     return 1;
   }
 
-  string fileName = argv[1];
+  std::string fileName = argv[1];
 
-  string keyType = "uint32";
+  std::string keyType = "uint32";
   if (argc>=3) keyType = argv[2];
   
-  function<bool(string)> myCheckSortedFile;
+  std::function<bool(std::string)> myCheckSortedFile;
 
-  if (keyType == "uint8") myCheckSortedFile = checkSortedFile<uint8_t>;
-  else if (keyType == "uint16") myCheckSortedFile = checkSortedFile<uint16_t>;
-  else if (keyType == "uint32") myCheckSortedFile = checkSortedFile<uint32_t>;
-  else if (keyType == "uint64") myCheckSortedFile = checkSortedFile<uint64_t>;
-  else if (keyType == "int8") myCheckSortedFile = checkSortedFile<int8_t>;
-  else if (keyType == "int16") myCheckSortedFile = checkSortedFile<int16_t>;
-  else if (keyType == "int32") myCheckSortedFile = checkSortedFile<int32_t>;
-  else if (keyType == "int64") myCheckSortedFile = checkSortedFile<int64_t>;
-  else if (keyType == "float") myCheckSortedFile = checkSortedFile<float>;
-  else if (keyType == "double") myCheckSortedFile = checkSortedFile<double>;
+  if (keyType == "uint8") myCheckSortedFile = ems::checkSortedFile<uint8_t>;
+  else if (keyType == "uint16") myCheckSortedFile = ems::checkSortedFile<uint16_t>;
+  else if (keyType == "uint32") myCheckSortedFile = ems::checkSortedFile<uint32_t>;
+  else if (keyType == "uint64") myCheckSortedFile = ems::checkSortedFile<uint64_t>;
+  else if (keyType == "int8") myCheckSortedFile = ems::checkSortedFile<int8_t>;
+  else if (keyType == "int16") myCheckSortedFile = ems::checkSortedFile<int16_t>;
+  else if (keyType == "int32") myCheckSortedFile = ems::checkSortedFile<int32_t>;
+  else if (keyType == "int64") myCheckSortedFile = ems::checkSortedFile<int64_t>;
+  else if (keyType == "float") myCheckSortedFile = ems::checkSortedFile<float>;
+  else if (keyType == "double") myCheckSortedFile = ems::checkSortedFile<double>;
   else {
-    cerr << "Invalid key type " << keyType.c_str() << endl;
+    std::cerr << "Invalid key type " << keyType.c_str() << std::endl;
     return 1;
   }
 
   if (!myCheckSortedFile(fileName)) {
-    cout << "File " << fileName.c_str() << " is not sorted " << endl;
+    std::cout << "File " << fileName.c_str() << " is not sorted " << std::endl;
     return 1;
   }
-  cout << "File " << fileName.c_str() << " is sorted " << endl;
+  std::cout << "File " << fileName.c_str() << " is sorted " << std::endl;
   return 0;
 }
 

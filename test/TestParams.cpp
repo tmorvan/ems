@@ -6,13 +6,11 @@
 #include <cstdint>
 #include <memory>
 
-using namespace std;
-using namespace ems;
 
 
 int main(int argc, char** argv)
 {
-  ExternalMergeSort<uint32_t> mergeSort;
+  ems::ExternalMergeSort<uint32_t> mergeSort;
 
   mergeSort.setNumThreads(0);
   if (mergeSort.getNumThreads() != 1) return 1;

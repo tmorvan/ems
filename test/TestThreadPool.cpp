@@ -5,17 +5,14 @@
 #include <iostream>
 #include <atomic>
 
-using namespace std;
-using namespace ems;
-
 //Used to store the atomic sum
-atomic<long long> atomicSum ;
+std::atomic<long long> atomicSum ;
 
-struct AtomicAddTask : public Task {
+struct AtomicAddTask : public ems::Task {
   long long number;
 };
 
-void atomicAddTaskHandler(int threadId, Task *task) {
+void atomicAddTaskHandler(int threadId, ems::Task *task) {
   AtomicAddTask *addTask = dynamic_cast<AtomicAddTask *>(task);
   if (!addTask) return;
   atomicSum += addTask->number;
@@ -28,14 +25,14 @@ bool atomicAddTest() {
   atomicSum = 0;
 
   //The tasks containing numbers to be added
-  vector<shared_ptr<AtomicAddTask>> addTasks(numValues);
+  std::vector<std::shared_ptr<AtomicAddTask>> addTasks(numValues);
 
   for (auto i = 0; i < addTasks.size(); i++) {
-    addTasks[i] = make_shared<AtomicAddTask>();
+    addTasks[i] = std::make_shared<AtomicAddTask>();
     addTasks[i]->number = (i + 1);
   }
 
-  ThreadPool pool;
+  ems::ThreadPool pool;
 
   for (auto &addTask : addTasks) pool.addTask(addTask);
 
@@ -55,12 +52,12 @@ bool atomicAddTest() {
   return true;
 }
 
-struct ParallelAddTask : public Task {
+struct ParallelAddTask : public ems::Task {
   long long level;
   long long number[2];
 };
 
-void parallelAddTaskHandler(int threadId, Task *task) {
+void parallelAddTaskHandler(int threadId, ems::Task *task) {
   ParallelAddTask *addTask = dynamic_cast<ParallelAddTask *>(task);
   if (!addTask) return;
   addTask->number[0] += addTask->number[1];
@@ -73,7 +70,7 @@ bool parallelAddTest() {
   long long numValues = 1024;
 
   //The tasks containing numbers to be added
-  vector<shared_ptr<ParallelAddTask>> addTasks(numValues);
+  std::vector<std::shared_ptr<ParallelAddTask>> addTasks(numValues);
 
   long long numLevels = 0;
   long long levelSize = numValues;
@@ -82,13 +79,13 @@ bool parallelAddTest() {
 
 
   for (long long i = 0; i < numValues/2; i++) {
-    addTasks[i] = make_shared<ParallelAddTask>();
+    addTasks[i] = std::make_shared<ParallelAddTask>();
     addTasks[i]->number[0] = (i + 1);
     addTasks[i]->number[1] = numValues/2 + (i + 1);
     addTasks[i]->level = 0;
   }
 
-  ThreadPool pool;
+  ems::ThreadPool pool;
 
   for (auto &addTask : addTasks) pool.addTask(addTask);
 
@@ -100,7 +97,7 @@ bool parallelAddTest() {
   long long parallelSum = 0;
 
   //Used to store completed tasks
-  vector<shared_ptr<ParallelAddTask>> storedTasks(numLevels,nullptr);
+  std::vector<std::shared_ptr<ParallelAddTask>> storedTasks(numLevels, nullptr);
 
   while (true) {
     std::shared_ptr<ParallelAddTask> completedTask = std::dynamic_pointer_cast<ParallelAddTask>(pool.getCompletedTask());
@@ -137,11 +134,37 @@ bool parallelAddTest() {
   return true;
 }
 
+bool priorityTest() {
+  std::vector<std::shared_ptr<AtomicAddTask>> tasks;
+
+  for (int i = 0; i < 10; i++) {
+    tasks.push_back(std::make_shared<AtomicAddTask>());
+    tasks[i]->number = i;
+  }
+
+  ems::ThreadPool pool;
+
+  //Add the task with increasing priority
+  for (int i = 0; i < 10; i++) {
+    pool.addTask(tasks[i], i);
+  }
+
+  //Check that we get the tasks in the correct order
+  for (int i = 0; i < 10; i++) {
+    std::shared_ptr<AtomicAddTask> task = std::dynamic_pointer_cast<AtomicAddTask>(pool.getTask(false));
+    if (task->number != (9 - i)) return false;
+  }
+
+  return true;
+}
+
 int main(int argc, char** argv)
 {
   if (!atomicAddTest()) return 1;
 
   if (!parallelAddTest()) return 1;
+
+  if (!priorityTest()) return 1;
 
   return 0;
 }

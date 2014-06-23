@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <fstream>
 #include <algorithm>
+#include <iostream>
 
 namespace ems {
 
@@ -26,7 +27,7 @@ namespace ems {
     std::random_device rd;
 
     //Write dataSize random integer values
-    outFile.open(fileName, ios::out | ios::binary);
+    outFile.open(fileName, std::ios::out | std::ios::binary);
     if (!outFile.is_open()) return false;
 
     long long numChunks = numValues / chunkSize;
@@ -53,13 +54,13 @@ namespace ems {
   template<typename key>
   bool checkSortedFile<key>(std::string fileName) {
     std::fstream inFile;
-    inFile.open(fileName, ios::in | ios::binary);
+    inFile.open(fileName, std::ios::in | std::ios::binary);
     if (!inFile.is_open()) return false;
 
     //Get the size of the input file
-    inFile.seekg(0, ios::end);
+    inFile.seekg(0, std::ios::end);
     long long dataLength = inFile.tellg();
-    inFile.seekg(0, ios::beg);
+    inFile.seekg(0, std::ios::beg);
 
     //Check that the file is of the right size
     if (dataLength % sizeof(key)) return false;
@@ -70,7 +71,7 @@ namespace ems {
     if (numValues == 0) return false;
 
     key val;
-    key previousVal = numeric_limits<key>::min();
+    key previousVal = std::numeric_limits<key>::min();
 
     for (long long i = 0; i < numValues; i++) {
       //Read the value and compare it to the previous
@@ -108,5 +109,25 @@ namespace ems {
     }
     return testFileName;
   }
+
+  void writeProfilingFile(std::string profilingFileName, int numThreads, TimePoint startTime, TimePoint endTime, const std::vector<std::shared_ptr<Task>> &completedTasks) {
+    std::fstream profilingFile;
+    profilingFile.open(profilingFileName,std::ios_base::out);
+    if (!profilingFile.is_open()) {
+      std::cerr << "writeProfilingFile: Could not open file " << profilingFileName << std::endl;
+    }
+    profilingFile << numThreads << ' ' << std::chrono::duration_cast<std::chrono::nanoseconds>(endTime-startTime).count() << std::endl;
+    for (auto task : completedTasks) {
+      if (!task) continue;
+      profilingFile << typeid(*task).name() << std::endl;
+      profilingFile << task->handlingThreadId;
+      profilingFile << ' ';
+      profilingFile << std::chrono::duration_cast<std::chrono::nanoseconds>(task->startTime - startTime).count();
+      profilingFile << ' ';
+      profilingFile << std::chrono::duration_cast<std::chrono::nanoseconds>(task->endTime - startTime).count();
+      profilingFile << std::endl;
+    }
+  }
+
 
 } //namespace ems

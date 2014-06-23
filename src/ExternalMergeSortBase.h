@@ -25,7 +25,7 @@ namespace ems {
   //Task for merging files
   struct MergeFilesTask : public Task {
     std::vector<std::pair<std::string,long long>> files;
-    long long level;
+    int level;
     std::string mergedFileName;
   };
 
@@ -54,6 +54,14 @@ namespace ems {
     }
     inline const char *getOutputFileName() const {
       return outputFileName_.c_str();
+    }
+
+    //Set/get the profiling file, if empty, profiling is turned off
+    inline void setProfilingFileName(const char *fileName) {
+      profilingFileName_ = fileName ? fileName : "";
+    }
+    inline const char *getProfilingFileName() const {
+      return profilingFileName_.c_str();
     }
 
     //Set/get the number of threads to use
@@ -144,6 +152,9 @@ namespace ems {
     //Output file name
     std::string outputFileName_;
     
+    //Profiling file name
+    std::string profilingFileName_;
+
     //Number of threads to use
     int numThreads_;
 

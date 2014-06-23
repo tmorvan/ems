@@ -2,6 +2,8 @@
 
 #pragma once
 
+#define PROFILE 1
+
 #include <unordered_map>
 #include <queue>
 #include <thread>
@@ -10,16 +12,27 @@
 #include <atomic>
 #include <memory>
 #include <functional>
+#include <chrono>
 
 namespace ems {
 
+  typedef std::chrono::time_point<std::chrono::high_resolution_clock> TimePoint;
+
   //Base polymorphic base struct for tasks
   struct Task {
-    Task() : handled(false) {};
+    Task() : handlingThreadId(-1) {};
     virtual ~Task() {}; // for polymorphism
 
-    bool handled;
+    int handlingThreadId;
+    TimePoint startTime;
+    TimePoint endTime;
   };
+
+  typedef std::pair<int, std::shared_ptr<Task>> PriorityTask;
+
+  bool operator< (const PriorityTask &p1, const PriorityTask &p2) {
+    return p1.first < p2.first;
+  }
 
   typedef std::function<void(int, Task *)> TaskHandler;
   typedef std::function<bool(int, std::exception_ptr)> ThreadExceptionHandler;
@@ -42,7 +55,7 @@ namespace ems {
     void join();
 
     //Enqueue a task for processing
-    void addTask(std::shared_ptr<Task> task);
+    void addTask(std::shared_ptr<Task> task, int priority=0);
 
     //Get a task and remove it from the queue
     //If block is true and the task queue is empty the thread will block
@@ -110,12 +123,32 @@ namespace ems {
       threadExceptionHandler_ = handler;
     }
 
+    //Enable/disable profiling
+    inline void setProfile(bool profile) {
+      profile_ = profile;
+    }
+
+    //Is profiling enabled?
+    inline bool getProfile() const {
+      return profile_;
+    }
+
+    //Time when handleTask was last called
+    inline TimePoint getStartTime() const {
+      return startTime_;
+    }
+
+    //Time when join was last called
+    inline TimePoint getEndTime() const {
+      return endTime_;
+    }
+
   private:
     //Worker threads
     std::vector<std::thread> workers_;
 
     //Queue of tasks to be processed
-    std::deque<std::shared_ptr<Task>> tasks_;
+    std::priority_queue<PriorityTask> tasks_;
 
     //Queue of completed tasks
     std::deque<std::shared_ptr<Task>> completedTasks_;
@@ -146,6 +179,15 @@ namespace ems {
 
     //Custom exception handler for the threads
     ThreadExceptionHandler threadExceptionHandler_;
+
+    //Indicates whether timings should be recorded
+    bool profile_;
+
+    //Time when handleTasks was called
+    TimePoint startTime_;
+
+    //Time when join was completed
+    TimePoint endTime_;
 
     //Function called by individual worker threads
     void workerFunc(int threadId);

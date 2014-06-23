@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ThreadPool.h"
+
 #include <string>
 
 namespace ems {
@@ -30,6 +32,14 @@ namespace ems {
     int appendNumber = -1;
     return findAvailableFileName(desiredFileName, appendNumber);
   }
+
+  //Write a file containing the profiling information for a list of tasks completed by a thread pool
+  //All durations are written in nanoseconds
+  //The first line contains the number of threads and total duration (endTime - startTime)
+  //Every subsequent pair of lines contains 
+  //The task name in the first line
+  //The id of the thread which processed the task, the start and end time of the task (relative to startTime) in the second line
+  void writeProfilingFile(std::string profilingFileName, int numThreads, TimePoint startTime, TimePoint endTime, const std::vector<std::shared_ptr<Task>> &completedTasks);
 
 } //namespace ems
 

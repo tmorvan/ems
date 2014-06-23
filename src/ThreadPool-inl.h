@@ -4,7 +4,8 @@ namespace ems {
 
   ThreadPool::ThreadPool() :
     isHandlingTasks_(false),
-    stopWhenEmpty_(false)
+    stopWhenEmpty_(false),
+    profile_(false)
   {  
   }
 
@@ -22,6 +23,8 @@ namespace ems {
       isHandlingTasks_ = true;
       //Release lock
     }
+
+    if (profile_) startTime_ = std::chrono::high_resolution_clock::now();
 
     //Spawn the worker threads
     workers_.clear();
@@ -51,19 +54,20 @@ namespace ems {
     for (int i = 0; i < workers_.size(); i++) {
       if (workers_[i].joinable()) workers_[i].join();
     }
+    if (profile_) endTime_ = std::chrono::high_resolution_clock::now();
   }
 
-  void ThreadPool::addTask(std::shared_ptr<Task> task) {
+  void ThreadPool::addTask(std::shared_ptr<Task> task, int priority) {
     if (!task) return;
 
-    task->handled = false;
+    task->handlingThreadId = -1;
 
     {
       //Acquire lock
       std::lock_guard<std::mutex> lock(tasksMutex_);
 
       //Enqueue the task
-      tasks_.push_back(task);
+      tasks_.emplace(priority,task);
 
       //Release lock
     } 
@@ -88,8 +92,8 @@ namespace ems {
 
     if (tasks_.empty()) return nullptr;
 
-    std::shared_ptr<Task> res = tasks_.front();
-    tasks_.pop_front();
+    std::shared_ptr<Task> res = tasks_.top().second;
+    tasks_.pop();
 
     return res;
 
@@ -101,7 +105,7 @@ namespace ems {
     std::unique_lock<std::mutex> lock(tasksMutex_);
 
     //Clear the tasks
-    tasks_.clear();
+    tasks_ = {};
 
     // Stop the threads if stopWhenEmpty_ is true
     if (stopWhenEmpty_) {
@@ -243,10 +247,13 @@ namespace ems {
 
         //Execute the handler
         if (handler) {
-          threadCurrentTask->handled = true;
+          threadCurrentTask->handlingThreadId = threadId;
+
+          if (profile_) threadCurrentTask->startTime = std::chrono::high_resolution_clock::now();
           handler(threadId, threadCurrentTask.get());
+          if (profile_) threadCurrentTask->endTime = std::chrono::high_resolution_clock::now();
         }
-        else threadCurrentTask->handled = false;
+        else threadCurrentTask->handlingThreadId = -1;
 
         //Push the task to the list of completed tasks
         {

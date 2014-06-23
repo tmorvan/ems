@@ -31,8 +31,8 @@ namespace ems {
       }
 
       //Open the input file
-      inFile_.exceptions(fstream::failbit | fstream::badbit);
-      inFile_.open(inputFileName_, ios::in | ios::binary);
+      inFile_.exceptions(std::fstream::failbit | std::fstream::badbit);
+      inFile_.open(inputFileName_, std::ios::in | std::ios::binary);
       if (!inFile_.is_open()) {
         std::cerr << "ExternalMergeSort::sortCould not open file " << inputFileName_ << std::endl;
         cleanup();
@@ -43,9 +43,9 @@ namespace ems {
       int tmpFileId = 0;
 
       //Get the size of the input file
-      inFile_.seekg(0, ios::end);
+      inFile_.seekg(0, std::ios::end);
       long long dataLength = inFile_.tellg();
-      inFile_.seekg(0, ios::beg);
+      inFile_.seekg(0, std::ios::beg);
 
       //File size should be a multiple of sizeof(key)
       if (dataLength % sizeof(key)) {
@@ -59,9 +59,9 @@ namespace ems {
       long long numChunks = (numValues + dataSizePerThread_-1) / dataSizePerThread_;
 
       //Compute the number of levels of merge to apply after the sorting and the number of chunks at each level
-      long long numMergeLevels = 0;
+      int numMergeLevels = 0;
       long long levelSize = numChunks;
-      vector<long long> levelNumChunks;
+      std::vector<long long> levelNumChunks;
       while (levelSize>1) {
         levelNumChunks.push_back(levelSize);
         numMergeLevels++;
@@ -77,9 +77,13 @@ namespace ems {
       pool_.clearTasks();
       pool_.clearCompletedTasks();
 
+      //Set up profiling if the a profil9ng file has been specified
+      std::vector<std::shared_ptr<Task>> completedTasks;
+      pool_.setProfile(!profilingFileName_.empty());
+
       //Create the sort tasks for each chunk 
       for (long long i = 0; i < numChunks; i++) {
-        shared_ptr<SortChunkTask> sortTask = make_shared<SortChunkTask>();
+        std::shared_ptr<SortChunkTask> sortTask = std::make_shared<SortChunkTask>();
         sortTask->startInd = i*dataSizePerThread_;
         sortTask->numValues = std::min(dataSizePerThread_, numValues - sortTask->startInd);
         if (numChunks>1) {
@@ -98,10 +102,13 @@ namespace ems {
 
       pool_.handleTasks(numThreads_);
 
-      shared_ptr<MergeFilesTask> newMergeTask;
-      shared_ptr<Task> completedTask = pool_.getCompletedTask();
+      std::shared_ptr<MergeFilesTask> newMergeTask;
+      std::shared_ptr<Task> completedTask = pool_.getCompletedTask();
 
       while (completedTask) {
+        //If needed save the task for profiling information
+        if (!profilingFileName_.empty()) completedTasks.push_back(completedTask);
+
         //Find out the type of the task
         SortChunkTask *sortTask = dynamic_cast<SortChunkTask *>(completedTask.get());
         MergeFilesTask *mergeTask = dynamic_cast<MergeFilesTask *>(completedTask.get());
@@ -135,7 +142,7 @@ namespace ems {
               }
             }
             //Add the new merge task
-            pool_.addTask(newMergeTask);
+            pool_.addTask(newMergeTask); // , newMergeTask->level);
             //Decrement the number of chunks for this level
             levelNumChunks[0] -= storedTasks_[0].size();
             //Clear the stored tasks
@@ -177,7 +184,7 @@ namespace ems {
               }
             }
             //Add the new merge task
-            pool_.addTask(newMergeTask);
+            pool_.addTask(newMergeTask); // , newMergeTask->level);
             //Decrement the number of chunks for this level
             levelNumChunks[mergeTask->level] -= storedTasks_[mergeTask->level].size();
             //Clear the stored tasks
@@ -190,6 +197,12 @@ namespace ems {
 
       //Stop handling and join the threads
       cleanup();
+
+      //Write profiling information
+      if (!profilingFileName_.empty()) {
+        writeProfilingFile(profilingFileName_, numThreads_, pool_.getStartTime(), pool_.getEndTime(), completedTasks);
+      }
+
       return true;
     }
     catch (...) {
@@ -207,7 +220,7 @@ namespace ems {
     std::fstream sortedFile;
     try {
       //Open the file for this chunk
-      sortedFile.exceptions(fstream::failbit | fstream::badbit);
+      sortedFile.exceptions(std::fstream::failbit | std::fstream::badbit);
       sortedFile.open(sortTask->sortedFileName, std::ios::out | std::ios::binary);
       //Read the data in this thread data vector
       {
@@ -266,12 +279,12 @@ namespace ems {
       //Open the input files in read mode
       inputFiles.resize(numMerges);
       for (int i = 0; i < numMerges; i++) {
-        inputFiles[i].exceptions(fstream::failbit | fstream::badbit);
+        inputFiles[i].exceptions(std::fstream::failbit | std::fstream::badbit);
         inputFiles[i].open(mergeTask->files[i].first, std::ios::in | std::ios::binary);
       }
 
       //Open the merged file in write mode
-      mergedFile.exceptions(fstream::failbit | fstream::badbit);
+      mergedFile.exceptions(std::fstream::failbit | std::fstream::badbit);
       mergedFile.open(mergeTask->mergedFileName, std::ios::out | std::ios::binary);
 
       //Priority queue keeping track of the values at the current pointers in the thread data vector
@@ -308,7 +321,7 @@ namespace ems {
         if (inputFilePos[topPair.second] != mergeTask->files[topPair.second].second) {
           //Read more data if necessary
           if (inputFileArrayPos[topPair.second] == (topPair.second + 1)*inputFileArraySize) {
-            long long numRead = min<long long>(inputFileArraySize, mergeTask->files[topPair.second].second - inputFilePos[topPair.second]);
+            long long numRead = std::min<long long>(inputFileArraySize, mergeTask->files[topPair.second].second - inputFilePos[topPair.second]);
             if (numRead) {
               //Point to the beginning of the buffer for this input file
               inputFileArrayPos[topPair.second] = topPair.second*inputFileArraySize;
@@ -330,7 +343,7 @@ namespace ems {
       if (mergedFile.is_open()) mergedFile.close();
 
       //Close and remove the input files
-      for (fstream &f : inputFiles) {
+      for (std::fstream &f : inputFiles) {
         if (f.is_open()) f.close();
       }
       for (auto fileInfo : mergeTask->files) {
@@ -343,7 +356,7 @@ namespace ems {
       remove(mergeTask->mergedFileName.c_str());
 
       //Close and remove the input files
-      for (fstream &f : inputFiles) {
+      for (std::fstream &f : inputFiles) {
         if (f.is_open()) f.close();
       }
       for (auto fileInfo : mergeTask->files) {
