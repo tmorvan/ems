@@ -17,9 +17,26 @@ namespace ems {
     pool_.setThreadExceptionHandler([](int, std::exception_ptr) { return false; });
 
     //Set the default handlers for the sort and merge tasks
-    pool_.addTaskHandler<SortChunkTask>(std::bind(&ExternalMergeSort<key>::handleSortChunkTask,this,std::placeholders::_1,std::placeholders::_2));
+    pool_.addTaskHandler<SortChunkTask>(std::bind(&ExternalMergeSort<key>::handleSortChunkTask,this,std::placeholders::_1,std::placeholders::_2,std::sort<typename std::vector<key>::iterator>));
     pool_.addTaskHandler<MergeFilesTask>(std::bind(&ExternalMergeSort<key>::handleMergeFilesTask, this, std::placeholders::_1, std::placeholders::_2));
   }
+
+  template<typename key>
+  void ExternalMergeSort<key>::setSortFunction(SortFunction<key> sortFunc, int threadId) {
+    pool_.addTaskHandler<SortChunkTask>(std::bind(&ExternalMergeSort<key>::handleSortChunkTask, this, std::placeholders::_1, std::placeholders::_2, sortFunc),threadId);
+  }
+  
+  template<typename key>
+  void ExternalMergeSort<key>::clearSortFunction(int threadId) {
+    if (threadId == -1) {
+      //Only keep the default handler
+      TaskHandler defaultHandler = pool_.getTaskHandler<SortChunkTask>();
+      pool_.removeTaskHandler<SortChunkTask>();
+      pool_.addTaskHandler<SortChunkTask>(defaultHandler);
+    }
+    else pool_.removeTaskHandler<SortChunkTask>(threadId);
+  }
+
 
   template<typename key>
   bool ExternalMergeSort<key>::sort() {
@@ -214,7 +231,7 @@ namespace ems {
   }
 
   template<typename key>
-  void ExternalMergeSort<key>::handleSortChunkTask(int threadId, Task *task) {
+  void ExternalMergeSort<key>::handleSortChunkTask(int threadId, Task *task, SortFunction<key> sortFunc) {
     SortChunkTask *sortTask = dynamic_cast<SortChunkTask *>(task);
     if (!sortTask) return;
     std::fstream sortedFile;
@@ -233,7 +250,7 @@ namespace ems {
       }
 
       //sort the chunk
-      std::sort(dataVec_[threadId].begin(), dataVec_[threadId].begin() + sortTask->numValues);
+      sortFunc(dataVec_[threadId].begin(), dataVec_[threadId].begin() + sortTask->numValues);
 
       //Write the sorted chunk
       sortedFile.write(reinterpret_cast<char *>(&(dataVec_[threadId][0])), sizeof(key)*sortTask->numValues);

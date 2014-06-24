@@ -8,6 +8,47 @@
 #include <cstdint>
 #include <memory>
 
+#ifdef WITH_CUDA
+#include <thrust/sort.h>
+#endif //WITH_CUDA
+
+int numThreads;
+long long dataSizePerThread;
+long long numMergesPerThread;
+std::string inputFileName;
+std::string outputFileName;
+std::string profilingFileName;
+
+#ifdef WITH_CUDA
+int numGpuThreads;
+#endif //WITH_CUDA
+
+template<typename key>
+int sortFile() {
+  ems::ExternalMergeSort<key> mergeSort;
+  mergeSort.setInputFileName(inputFileName.c_str());
+  mergeSort.setOutputFileName(outputFileName.c_str());
+#ifdef WITH_CUDA
+  if (numGpuThreads > 0) numThreads += numGpuThreads;
+#endif WITH_CUDA
+  mergeSort.setNumThreads(numThreads);
+#ifdef WITH_CUDA
+  ems::SortFunction<key> thrustSortFunc = thrust::sort<typename std::vector<key>::iterator>;
+  for (int i = 0; i < numGpuThreads; i++) mergeSort.setSortFunction(thrustSortFunc, i);
+#endif //WITH_CUDA
+  mergeSort.setDataSizePerThread(dataSizePerThread);
+  mergeSort.setNumMergesPerThread(numMergesPerThread);
+  if(!profilingFileName.empty()) mergeSort.setProfilingFileName(profilingFileName.c_str());
+
+
+
+  if (!mergeSort.sort()) {
+    std::cerr << "SortFile: Sort failed" << std::endl;
+    return 1;
+  }
+  return 0;
+}
+
 int main(int argc, char** argv)
 {
   if (argc < 3) {
@@ -16,37 +57,44 @@ int main(int argc, char** argv)
     return 1;
   }
 
+  inputFileName = argv[1];
+  outputFileName = argv[2];
+  numThreads = std::max(1u, std::thread::hardware_concurrency());
+  if (argc > 4) numThreads = atoi(argv[4]);
+
+
   std::string keyType = "uint32";
-  if (argc >= 4) keyType = argv[3];
+  if (argc > 3) keyType = argv[3];
+  dataSizePerThread = 10000000LL;
+  if (argc > 5) dataSizePerThread = atoll(argv[5]);
+  numMergesPerThread = 10LL;
+  if (argc > 6) numMergesPerThread = atoll(argv[6]);
+
+  int lastArg = 7;
+
+#ifdef WITH_CUDA
+  numGpuThreads = 0;
+  if (argc > lastArg) {
+    numGpuThreads = atoi(argv[lastArg++]);
+  }
+#endif //WITH_CUDA
+
+  if (argc > lastArg) profilingFileName = argv[lastArg];
 
   std::unique_ptr<ems::ExternalMergeSortBase> mergeSort;
 
-  if (keyType == "uint8") mergeSort = std::make_unique<ems::ExternalMergeSort<uint8_t>>();
-  else if (keyType == "uint16") mergeSort = std::make_unique<ems::ExternalMergeSort<uint16_t>>();
-  else if (keyType == "uint32") mergeSort = std::make_unique<ems::ExternalMergeSort<uint32_t>>();
-  else if (keyType == "uint64") mergeSort = std::make_unique<ems::ExternalMergeSort<uint64_t>>();
-  else if (keyType == "int8") mergeSort = std::make_unique<ems::ExternalMergeSort<int8_t>>();
-  else if (keyType == "int16") mergeSort = std::make_unique<ems::ExternalMergeSort<int16_t>>();
-  else if (keyType == "int32") mergeSort = std::make_unique<ems::ExternalMergeSort<int32_t>>();
-  else if (keyType == "int64") mergeSort = std::make_unique<ems::ExternalMergeSort<int64_t>>();
-  else if (keyType == "float") mergeSort = std::make_unique<ems::ExternalMergeSort<float>>();
-  else if (keyType == "double") mergeSort = std::make_unique<ems::ExternalMergeSort<double>>();
-  else {
-    std::cerr << "Invalid key type " << keyType.c_str() << std::endl;
-    return 1;
-  }
+  if (keyType == "uint8") return sortFile<uint8_t>();
+  else if (keyType == "uint16") return sortFile<uint16_t>();
+  else if (keyType == "uint32") return sortFile<uint32_t>();
+  else if (keyType == "uint64") return sortFile<uint64_t>();
+  else if (keyType == "int8") return sortFile<int8_t>();
+  else if (keyType == "int16") return sortFile<int16_t>();
+  else if (keyType == "int32") return sortFile<int32_t>();
+  else if (keyType == "int64") return sortFile<int64_t>();
+  else if (keyType == "float") return sortFile<float>();
+  else if (keyType == "double") return sortFile<double>();
 
-  mergeSort->setInputFileName(argv[1]);
-  mergeSort->setOutputFileName(argv[2]);
-  if (argc >= 5) mergeSort->setNumThreads(atoi(argv[4]));
-  if (argc >= 6) mergeSort->setDataSizePerThread(atoll(argv[5]));
-  if (argc >= 7) mergeSort->setNumMergesPerThread(atoll(argv[6]));
-  if (argc >= 8) mergeSort->setProfilingFileName(argv[7]);
-
-  if (!mergeSort->sort()) {
-    std::cerr << "Error during merge sort" << std::endl;
-    return 1;
-  }
-  return 0;
+  std::cerr << "Invalid key type " << keyType.c_str() << std::endl;
+  return 1;
 }
 

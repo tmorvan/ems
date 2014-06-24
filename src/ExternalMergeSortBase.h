@@ -97,12 +97,6 @@ namespace ems {
     virtual bool sort() = 0;
 
   protected:
-    //Function to sort a chunk
-    virtual void handleSortChunkTask(int threadId, Task *task) = 0;
-
-    //Function to merge a chunl
-    virtual void handleMergeFilesTask(int threadId, Task *task) = 0;
-
     //Allocate the data for the threads
     virtual void allocateData() = 0;
 

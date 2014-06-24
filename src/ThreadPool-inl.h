@@ -159,7 +159,7 @@ namespace ems {
     //Set the handler
     taskHandlers_[typeHash][threadId] = handler;
 
-    //If this task type does not hae a default handler, set it
+    //If this task type does not have a default handler, set it
     auto it = taskHandlers_[typeHash].find(-1);
     if (it == taskHandlers_[typeHash].end()) taskHandlers_[typeHash][-1] = handler;
 
