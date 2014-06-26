@@ -11,7 +11,7 @@
 namespace ems {
 
   template<typename key>
-  bool createRandomFile<key>(std::string fileName, long long numValues, long long chunkSize) {
+  bool createRandomFile(std::string fileName, long long numValues, long long chunkSize) {
     if ((numValues <= 0) || (chunkSize <= 0) || (fileName.empty())) return false;
     
     std::fstream outFile;
@@ -52,7 +52,7 @@ namespace ems {
   }
 
   template<typename key>
-  bool checkSortedFile<key>(std::string fileName) {
+  bool checkSortedFile(std::string fileName) {
     std::fstream inFile;
     inFile.open(fileName, std::ios::in | std::ios::binary);
     if (!inFile.is_open()) return false;

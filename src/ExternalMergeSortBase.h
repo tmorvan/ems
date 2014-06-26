@@ -32,7 +32,7 @@ namespace ems {
   class ExternalMergeSortBase
   {
   public:
-    ExternalMergeSortBase::ExternalMergeSortBase() :
+    ExternalMergeSortBase() :
       numThreads_(4),
       dataSizePerThread_(10000000),
       numMergesPerThread_(10)

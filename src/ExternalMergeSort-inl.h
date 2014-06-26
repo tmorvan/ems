@@ -272,7 +272,7 @@ namespace ems {
     MergeFilesTask *mergeTask = dynamic_cast<MergeFilesTask *>(task);
     if (!mergeTask) return;
     std::fstream mergedFile;
-    std::vector<std::fstream> inputFiles;
+    std::vector<std::unique_ptr<std::fstream>> inputFiles;
     try {
       long long numMerges = mergeTask->files.size();
       if (!numMerges) return;
@@ -296,8 +296,9 @@ namespace ems {
       //Open the input files in read mode
       inputFiles.resize(numMerges);
       for (int i = 0; i < numMerges; i++) {
-        inputFiles[i].exceptions(std::fstream::failbit | std::fstream::badbit);
-        inputFiles[i].open(mergeTask->files[i].first, std::ios::in | std::ios::binary);
+	inputFiles[i] = std::unique_ptr<std::fstream>(new std::fstream);
+        inputFiles[i]->exceptions(std::fstream::failbit | std::fstream::badbit);
+        inputFiles[i]->open(mergeTask->files[i].first, std::ios::in | std::ios::binary);
       }
 
       //Open the merged file in write mode
@@ -319,7 +320,7 @@ namespace ems {
           //Point to the beginning of the buffer for this chunk
           inputFileArrayPos[i] = i*inputFileArraySize;
           //Read the data
-          inputFiles[i].read(reinterpret_cast<char *>(&(dataVec_[threadId][inputFileArrayPos[i]])), sizeof(key)* numRead);
+          inputFiles[i]->read(reinterpret_cast<char *>(&(dataVec_[threadId][inputFileArrayPos[i]])), sizeof(key)* numRead);
           mergeQueue.push(std::make_pair(dataVec_[threadId][inputFileArrayPos[i]], i));
         }
       }
@@ -343,7 +344,7 @@ namespace ems {
               //Point to the beginning of the buffer for this input file
               inputFileArrayPos[topPair.second] = topPair.second*inputFileArraySize;
               //Read the data
-              inputFiles[topPair.second].read(reinterpret_cast<char *>(&(dataVec_[threadId][inputFileArrayPos[topPair.second]])), sizeof(key)* numRead);
+              inputFiles[topPair.second]->read(reinterpret_cast<char *>(&(dataVec_[threadId][inputFileArrayPos[topPair.second]])), sizeof(key)* numRead);
             }
           }
           //Add to the queue
@@ -360,8 +361,8 @@ namespace ems {
       if (mergedFile.is_open()) mergedFile.close();
 
       //Close and remove the input files
-      for (std::fstream &f : inputFiles) {
-        if (f.is_open()) f.close();
+      for (auto &f : inputFiles) {
+        if (f->is_open()) f->close();
       }
       for (auto fileInfo : mergeTask->files) {
         remove(fileInfo.first.c_str());
@@ -373,8 +374,8 @@ namespace ems {
       remove(mergeTask->mergedFileName.c_str());
 
       //Close and remove the input files
-      for (std::fstream &f : inputFiles) {
-        if (f.is_open()) f.close();
+      for (auto &f : inputFiles) {
+        if (f->is_open()) f->close();
       }
       for (auto fileInfo : mergeTask->files) {
         remove(fileInfo.first.c_str());

@@ -4,7 +4,7 @@ set(SORTFILESRC
     
 find_package(CUDA)
 if(CUDA_FOUND)
-  cuda_add_executable(sortfile ${SORTFILESRC} ${EMSHEADERS})
+  add_executable(sortfile ${SORTFILESRC} ${EMSHEADERS})
   include_directories(${CUDA_INCLUDE_DIRS})
   set_target_properties(sortfile PROPERTIES COMPILE_DEFINITIONS "WITH_CUDA")
 else(CUDA_FOUND)

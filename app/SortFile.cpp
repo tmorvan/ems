@@ -30,7 +30,7 @@ int sortFile() {
   mergeSort.setOutputFileName(outputFileName.c_str());
 #ifdef WITH_CUDA
   if (numGpuThreads > 0) numThreads += numGpuThreads;
-#endif WITH_CUDA
+#endif //WITH_CUDA
   mergeSort.setNumThreads(numThreads);
 #ifdef WITH_CUDA
   ems::SortFunction<key> thrustSortFunc = thrust::sort<typename std::vector<key>::iterator>;
