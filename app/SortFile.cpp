@@ -9,7 +9,7 @@
 #include <memory>
 
 #ifdef WITH_CUDA
-#include <thrust/sort.h>
+#include "SortFileCuda.h"
 #endif //WITH_CUDA
 
 int numThreads;
@@ -33,8 +33,11 @@ int sortFile() {
 #endif //WITH_CUDA
   mergeSort.setNumThreads(numThreads);
 #ifdef WITH_CUDA
+  //Use thrust (radix) as default for now
   ems::SortFunction<key> thrustSortFunc = thrust::sort<typename std::vector<key>::iterator>;
-  for (int i = 0; i < numGpuThreads; i++) mergeSort.setSortFunction(thrustSortFunc, i);
+  mergeSort.setSortFunction(thrustSortFunc);
+  ems::SortFunction<key> cudaSortFunc = sortCuda<key>;
+  for (int i = 0; i < numGpuThreads; i++) mergeSort.setSortFunction(cudaSortFunc, i);
 #endif //WITH_CUDA
   mergeSort.setDataSizePerThread(dataSizePerThread);
   mergeSort.setNumMergesPerThread(numMergesPerThread);
@@ -53,7 +56,7 @@ int main(int argc, char** argv)
 {
   if (argc < 3) {
     std::cerr << "Too few arguments " << std::endl;
-    if (argc != 0) std::cerr << "Syntax : " << argv[0] << " inputFileName outputFileName [keyType] [numThreads] [dataSizePerThread] [numMergesPerThread] [profilingFileName]" << std::endl;
+    if (argc != 0) std::cerr << "Syntax : " << argv[0] << " inputFileName outputFileName [keyType] [numThreads] [dataSizePerThread] [numMergesPerThread] [numGpuThreads] [profilingFileName]" << std::endl;
     return 1;
   }
 
@@ -80,8 +83,6 @@ int main(int argc, char** argv)
 #endif //WITH_CUDA
 
   if (argc > lastArg) profilingFileName = argv[lastArg];
-
-  std::unique_ptr<ems::ExternalMergeSortBase> mergeSort;
 
   if (keyType == "uint8") return sortFile<uint8_t>();
   else if (keyType == "uint16") return sortFile<uint16_t>();

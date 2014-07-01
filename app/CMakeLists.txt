@@ -1,10 +1,13 @@
 set(SORTFILESRC 
+    SortFileCuda.cu
     SortFile.cpp
     )
     
 find_package(CUDA)
 if(CUDA_FOUND)
-  add_executable(sortfile ${SORTFILESRC} ${EMSHEADERS})
+  set(CUDA_PROPAGATE_HOST_FLAGS OFF)
+  set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -arch=compute_30 -code=sm_30")
+  cuda_add_executable(sortfile ${SORTFILESRC} ${EMSHEADERS})
   include_directories(${CUDA_INCLUDE_DIRS})
   set_target_properties(sortfile PROPERTIES COMPILE_DEFINITIONS "WITH_CUDA")
 else(CUDA_FOUND)

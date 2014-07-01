@@ -17,7 +17,7 @@ namespace ems {
 
     //Set the sort function for the given thread
     //If threadId is -1, set this function as default for all threads
-    //Initially defaault sort function is std::sort
+    //Initially default sort function is std::sort
     void setSortFunction(SortFunction<key> sortFunc, int threadId = -1);
 
     //Reset the sort functions for the given thread
